@@ -9,12 +9,16 @@ certoraRun certora/harness/ArbitrumHarness.sol \
             ArbitrumHarness:_mock=mockTarget \
     --solc solc8.10 \
     --optimistic_loop \
+    --optimistic_hashing \
     --loop_iter 2 \
     --cloud \
-    --rules $1 $2 $3 $4 $5 $6 $7 $8 $9 ${10} ${11} ${12} ${13} ${14} ${15} ${16} \
     --settings -contractRecursionLimit=1 \
     --send_only \
     --msg "Arbitrum all"  
+
+
+#    --rules $1 $2 $3 $4 $5 $6 $7 $8 $9 ${10} ${11} ${12} ${13} ${14} ${15} ${16} \
+
 # py ../EVMVerifier/scripts/certoraRun.py contracts/bridges/OptimismBridgeExecutor.sol \
 #     
 

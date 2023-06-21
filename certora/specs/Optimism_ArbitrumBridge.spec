@@ -1,6 +1,6 @@
-import "erc20.spec"
-using DummyERC20A as erc20_A
-using DummyERC20B as erc20_B
+import "erc20.spec";
+using DummyERC20A as erc20_A;
+using DummyERC20B as erc20_B;
 
 // Verification reports:
 // Optimism:
@@ -13,25 +13,25 @@ using DummyERC20B as erc20_B
 ////////////////////////////////////////////////////////////////////////////
 
 methods {
-	getDelay() returns (uint256) envfree 
-	getGracePeriod() returns (uint256) envfree
-	getMinimumDelay() returns (uint256) envfree
-	getMaximumDelay() returns (uint256) envfree
-	getGuardian() returns(address) envfree
-	getActionsSetCount() returns(uint256) envfree
-	getCurrentState(uint256) returns (uint8)
-	getEthereumGovernanceExecutor() returns (address) envfree
-	getActionsSetExecutionTime(uint256) returns (uint256) envfree
-	ID2actionHash(uint256, uint256) returns (bytes32) envfree
-	getActionsSetLength(uint256) returns (uint256) envfree
-	getActionSetWithDelegate(uint256, uint256) returns (bool) envfree
-	getActionsSetTarget(uint256, uint256) returns (address) envfree
-	getActionsSetCalldata(uint256, uint256) returns (bytes) envfree
-	queue(address[], uint256[], string[], bytes[], bool[])
-	getActionsSetExecuted(uint256) returns (bool) envfree
-	getActionsSetCanceled(uint256) returns (bool) envfree
+	function getDelay() external returns (uint256) envfree;
+	function getGracePeriod() external returns (uint256) envfree;
+	function getMinimumDelay() external returns (uint256) envfree;
+	function getMaximumDelay() external returns (uint256) envfree;
+	function getGuardian() external returns(address) envfree;
+	function getActionsSetCount() external returns(uint256) envfree;
+	function getCurrentState(uint256) external returns (uint8);
+	function getEthereumGovernanceExecutor() external returns (address) envfree;
+	function getActionsSetExecutionTime(uint256) external returns (uint256) envfree;
+	function ID2actionHash(uint256, uint256) external returns (bytes32) envfree;
+	function getActionsSetLength(uint256) external returns (uint256) envfree;
+	function getActionSetWithDelegate(uint256, uint256) external returns (bool) envfree;
+	function getActionsSetTarget(uint256, uint256) external returns (address) envfree;
+	function getActionsSetCalldata(uint256, uint256) external returns (bytes) envfree;
+	function queue(address[], uint256[], string[], bytes[], bool[]) external;
+	function getActionsSetExecuted(uint256) external returns (bool) envfree;
+	function getActionsSetCanceled(uint256) external returns (bool) envfree;
 
-	delegatecall(bytes) => NONDET
+	function _.delegatecall(bytes) => NONDET;
 }
 
  // enum ActionsSetState 
@@ -46,29 +46,29 @@ methods {
 
 definition stateVariableGetter(method f)
 	returns bool = ( 
-		f.selector == getDelay().selector ||
-		f.selector == getGracePeriod().selector ||
-		f.selector == getMinimumDelay().selector ||
-		f.selector == getMaximumDelay().selector ||
-		f.selector == getGuardian().selector ||
-		f.selector == getActionsSetCount().selector);
+		f.selector == sig:getDelay().selector ||
+		f.selector == sig:getGracePeriod().selector ||
+		f.selector == sig:getMinimumDelay().selector ||
+		f.selector == sig:getMaximumDelay().selector ||
+		f.selector == sig:getGuardian().selector ||
+		f.selector == sig:getActionsSetCount().selector);
 
 definition stateVariableUpdate(method f)
 	returns bool = (
-		f.selector == updateDelay(uint256).selector ||
-		f.selector == updateGuardian(address).selector ||
-		f.selector == updateGracePeriod(uint256).selector ||
-		f.selector == updateMinimumDelay(uint256).selector ||
-		f.selector == updateMaximumDelay(uint256).selector);
+		f.selector == sig:updateDelay(uint256).selector ||
+		f.selector == sig:updateGuardian(address).selector ||
+		f.selector == sig:updateGracePeriod(uint256).selector ||
+		f.selector == sig:updateMinimumDelay(uint256).selector ||
+		f.selector == sig:updateMaximumDelay(uint256).selector);
 
 ////////////////////////////////////////////////////////////////////////////
 //                       Rules                                            //
 ////////////////////////////////////////////////////////////////////////////
 invariant properDelay()
-	getMinimumDelay() <= getDelay() && getDelay() <= getMaximumDelay()
+    getMinimumDelay() <= getDelay() && getDelay() <= getMaximumDelay();
 
 invariant actionNotCanceledAndExecuted(uint256 setID)
-	! (getActionsSetCanceled(setID) && getActionsSetExecuted(setID))
+    ! (getActionsSetCanceled(setID) && getActionsSetExecuted(setID));
 
 invariant notCanceledNotExecuted(uint256 id)
 	( !getActionsSetCanceled(id) && !getActionsSetExecuted(id) )
@@ -79,7 +79,7 @@ invariant notCanceledNotExecuted(uint256 id)
 	}
 	
 invariant minDelayLtMaxDelay()
-	getMinimumDelay() <= getMaximumDelay()
+    getMinimumDelay() <= getMaximumDelay();
 
 // Only the current contract (executor) can change its variables.
 rule whoChangedStateVariables(method f)
@@ -243,7 +243,7 @@ rule expiredForever(method f, uint256 actionsSetId)
 	require getCurrentState(e, actionsSetId) == 3;
 	require e.block.timestamp <= e2.block.timestamp;
 	 
-	if (f.selector == updateGracePeriod(uint256).selector) {
+	if (f.selector == sig:updateGracePeriod(uint256).selector) {
 		uint256 oldPeriod = getGracePeriod();
 		updateGracePeriod(e, args);
 		uint256 newPeriod = getGracePeriod();
@@ -293,7 +293,7 @@ rule onlyCancelCanCancel(method f, uint actionsSetId)
 		f(e, args);
 
 	assert getCurrentState(e, actionsSetId) == 2
-			=> f.selector == cancel(uint256).selector;
+			=> f.selector == sig:cancel(uint256).selector;
 }
 
 // Cancel only cancels one actions set.
@@ -345,7 +345,7 @@ filtered{f -> !f.isView}
 		f(e, args);
 	uint8 state2 = getCurrentState(e, actionsSetId);
 
-	assert f.selector != execute(uint256).selector =>
+	assert f.selector != sig:execute(uint256).selector =>
 	! (state1 == 0 && state2 == 1);
 }
 
