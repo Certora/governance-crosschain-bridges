@@ -8,6 +8,7 @@ certoraRun certora/harness/OptimismHarness.sol \
             mockTarget:_tokenB=DummyERC20B \
             OptimismHarness:_mock=mockTarget \
     --solc solc8.10 \
+    --optimistic_hashing \
     --optimistic_loop \
     --loop_iter 2 \
     --cloud \

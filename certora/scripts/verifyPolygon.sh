@@ -8,6 +8,7 @@ certoraRun certora/harness/PolygonHarness.sol \
         mockTargetPoly:_tokenB=DummyERC20B \
         PolygonHarness:_mock=mockTargetPoly \
     --solc solc8.10 \
+    --optimistic_hashing \
     --optimistic_loop \
     --loop_iter 2 \
     --cloud \

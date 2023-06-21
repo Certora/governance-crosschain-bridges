@@ -9,6 +9,7 @@ certoraRun certora/harness/ArbitrumHarness.sol \
             ArbitrumHarness:_mock=mockTarget \
     --solc solc8.10 \
     --optimistic_loop \
+    --optimistic_hashing \
     --loop_iter 2 \
     --cloud \
     --settings -contractRecursionLimit=1 \
