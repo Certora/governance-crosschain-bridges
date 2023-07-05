@@ -19,7 +19,7 @@ methods {
 	function getMaximumDelay() external returns (uint256) envfree;
 	function getGuardian() external returns(address) envfree;
 	function getActionsSetCount() external returns(uint256) envfree;
-	function getCurrentState(uint256) external returns (uint8);
+	function getCurrentState(uint256) external returns (IExecutorBase.ActionsSetState);
 	function getEthereumGovernanceExecutor() external returns (address) envfree;
 	function getActionsSetExecutionTime(uint256) external returns (uint256) envfree;
 	function ID2actionHash(uint256, uint256) external returns (bytes32) envfree;
@@ -31,7 +31,7 @@ methods {
 	function getActionsSetExecuted(uint256) external returns (bool) envfree;
 	function getActionsSetCanceled(uint256) external returns (bool) envfree;
 
-	function _.delegatecall(bytes) => NONDET;
+//	function _.delegatecall(bytes) => NONDET;
 }
 
  // enum ActionsSetState 
@@ -154,9 +154,9 @@ rule queueCannotCancel()
 	calldataarg args;
 	uint256 actionsSetId;
 
-	require getCurrentState(e, actionsSetId) != 2;
+	require getCurrentState(e, actionsSetId) != IExecutorBase.ActionsSetState.Canceled; // In CVL1 was "!= 2"
 		queue2(e, args);
-	assert getCurrentState(e, actionsSetId) != 2;
+	assert getCurrentState(e, actionsSetId) != IExecutorBase.ActionsSetState.Canceled; // In CVL1 was "!= 2"
 }
 
 // execute cannot cancel another set.
@@ -167,12 +167,12 @@ rule executeCannotCancel()
 	uint256 calledSet;
 	uint256 canceledSet;
 
-	require getCurrentState(e, canceledSet) != 2;
+	require getCurrentState(e, canceledSet) != IExecutorBase.ActionsSetState.Canceled; // In CVL1 was "!= 2"
 	require getGuardian() != _mock(e);
 	
 	execute(e, calledSet);
 
-	assert getCurrentState(e, canceledSet) != 2;
+	assert getCurrentState(e, canceledSet) != IExecutorBase.ActionsSetState.Canceled; // In CVL1 was "!= 2"
 }
 
 // A three-part rule to prove that:
@@ -189,7 +189,7 @@ rule noIncarnations1()
 	require actionsSetId < max_uint;
 	requireInvariant notCanceledNotExecuted(actionsSetId);
 	queue2(e, args);
-	assert getCurrentState(e, actionsSetId) == 0
+	assert getCurrentState(e, actionsSetId) == IExecutorBase.ActionsSetState.Queued
 	&& actionsSetId < getActionsSetCount();
 }
 
@@ -200,7 +200,7 @@ rule noIncarnations2(uint256 actionsSetId)
 {
 	env e;
 	execute(e, actionsSetId);
-	assert getCurrentState(e, actionsSetId) != 0;
+	assert getCurrentState(e, actionsSetId) != IExecutorBase.ActionsSetState.Queued;
 }
 
 // Third part:
@@ -212,9 +212,9 @@ rule noIncarnations3(uint256 actionsSetId)
 	env e;
 	calldataarg args;
 	require actionsSetId <= getActionsSetCount();
-	require getCurrentState(e, actionsSetId) != 0;
+	require getCurrentState(e, actionsSetId) != IExecutorBase.ActionsSetState.Queued;
 	queue2(e, args);
-	assert getCurrentState(e, actionsSetId) != 0;
+	assert getCurrentState(e, actionsSetId) != IExecutorBase.ActionsSetState.Queued;
 }
 
 // Once executed, an actions set ID remains executed forever.
@@ -222,25 +222,25 @@ rule executedForever(method f, uint256 actionsSetId)
 {
 	env e; env e2;
 	calldataarg args;
-	require getCurrentState(e, actionsSetId) == 1;
+	require getCurrentState(e, actionsSetId) == IExecutorBase.ActionsSetState.Executed;
 		f(e, args);
-	assert getCurrentState(e2, actionsSetId) == 1;
+	assert getCurrentState(e2, actionsSetId) == IExecutorBase.ActionsSetState.Executed;
 } 
 
 rule canceledForever(method f, uint256 actionsSetId)
 {
 	env e; env e2;
 	calldataarg args;
-	require getCurrentState(e, actionsSetId) == 2;
+	require getCurrentState(e, actionsSetId) == IExecutorBase.ActionsSetState.Canceled; // In CVL1 was "== 2"
 		f(e, args);
-	assert getCurrentState(e2, actionsSetId) == 2;
+	assert getCurrentState(e2, actionsSetId) == IExecutorBase.ActionsSetState.Canceled; // In CVL1 was "== 2"
 }
 
 rule expiredForever(method f, uint256 actionsSetId)
 {
 	env e; env e2;
 	calldataarg args;
-	require getCurrentState(e, actionsSetId) == 3;
+	require getCurrentState(e, actionsSetId) == IExecutorBase.ActionsSetState.Expired;
 	require e.block.timestamp <= e2.block.timestamp;
 	 
 	if (f.selector == sig:updateGracePeriod(uint256).selector) {
@@ -248,11 +248,11 @@ rule expiredForever(method f, uint256 actionsSetId)
 		updateGracePeriod(e, args);
 		uint256 newPeriod = getGracePeriod();
 		assert newPeriod <= oldPeriod =>
-		getCurrentState(e2, actionsSetId) == 3;
+		getCurrentState(e2, actionsSetId) == IExecutorBase.ActionsSetState.Expired;
 	}
 	else {
 		f(e, args);
-		assert getCurrentState(e2, actionsSetId) == 3;
+		assert getCurrentState(e2, actionsSetId) == IExecutorBase.ActionsSetState.Expired;
 	}	
 } 
 
@@ -265,7 +265,7 @@ rule queuedStateConsistency()
 	uint256 id = getActionsSetCount();
 	requireInvariant notCanceledNotExecuted(id);
 	queue2(e, args);
-	assert getCurrentState(e, id) == 0;
+	assert getCurrentState(e, id) == IExecutorBase.ActionsSetState.Queued;
 }
 
 // Queue must increase action set by 1.
@@ -277,7 +277,7 @@ rule queuedChangedCounter()
 		queue2(e, args);
 	uint256 count2 = getActionsSetCount();
 
-	assert count1 < max_uint => count2 == count1+1;
+	assert count1 < max_uint => to_mathint(count2) == count1+1;
 }
 
 // A set status can be changed from 'queued' to 'canceled'
@@ -288,11 +288,11 @@ rule onlyCancelCanCancel(method f, uint actionsSetId)
 	calldataarg args;
 	require getGuardian() != _mock(e);
 	// Replace by !=2
-	require getCurrentState(e, actionsSetId) != 2;
+	require getCurrentState(e, actionsSetId) != IExecutorBase.ActionsSetState.Canceled; // In CVL1 was "!= 2"
 
 		f(e, args);
 
-	assert getCurrentState(e, actionsSetId) == 2
+	assert getCurrentState(e, actionsSetId) == IExecutorBase.ActionsSetState.Canceled // In CVL1 was "== 2"
 			=> f.selector == sig:cancel(uint256).selector;
 }
 
@@ -300,9 +300,9 @@ rule onlyCancelCanCancel(method f, uint actionsSetId)
 rule cancelExclusive(uint actionsSetId1, uint actionsSetId2)
 {
 	env e;
-	uint8 stateBefore = getCurrentState(e, actionsSetId2);
+	IExecutorBase.ActionsSetState stateBefore = getCurrentState(e, actionsSetId2);
 		cancel(e, actionsSetId1);
-	uint8 stateAfter = getCurrentState(e, actionsSetId2);
+	IExecutorBase.ActionsSetState stateAfter = getCurrentState(e, actionsSetId2);
 
 	assert actionsSetId1 != actionsSetId2 => stateBefore == stateAfter;
 }
@@ -314,9 +314,9 @@ filtered {f -> !f.isView}
 	env e;
 	calldataarg args;
 
-	uint8 state1 = getCurrentState(e, actionsSetId);
+	IExecutorBase.ActionsSetState state1 = getCurrentState(e, actionsSetId);
 		f(e, args);
-	uint8 state2 = getCurrentState(e, actionsSetId);
+	IExecutorBase.ActionsSetState state2 = getCurrentState(e, actionsSetId);
 
 	assert state1 == state2, "${f} changed the state of an actions set.";
 }
@@ -341,12 +341,12 @@ filtered{f -> !f.isView}
 {
 	env e;
 	calldataarg args;
-	uint8 state1 = getCurrentState(e, actionsSetId);
-		f(e, args);
-	uint8 state2 = getCurrentState(e, actionsSetId);
+	IExecutorBase.ActionsSetState state1 = getCurrentState(e, actionsSetId);
+        f(e, args);
+        IExecutorBase.ActionsSetState state2 = getCurrentState(e, actionsSetId);
 
 	assert f.selector != sig:execute(uint256).selector =>
-	! (state1 == 0 && state2 == 1);
+            ! (state1 == IExecutorBase.ActionsSetState.Queued && state2 == IExecutorBase.ActionsSetState.Executed);
 }
 
 // If any action set was executed, then this set (and only it) must change 
@@ -355,21 +355,21 @@ rule executedValidTransition2(uint256 actionsSetId)
 {
 	env e;
 	uint actionsSetId2;
-	uint8 state1 = getCurrentState(e, actionsSetId);
-		execute(e, actionsSetId2);
-	uint8 state2 = getCurrentState(e, actionsSetId);
+	IExecutorBase.ActionsSetState state1 = getCurrentState(e, actionsSetId);
+        execute(e, actionsSetId2);
+	IExecutorBase.ActionsSetState state2 = getCurrentState(e, actionsSetId);
 
-	assert actionsSetId2 == actionsSetId <=> state1 == 0 && state2 == 1;
+	assert actionsSetId2 == actionsSetId <=> state1 == IExecutorBase.ActionsSetState.Queued && state2 == IExecutorBase.ActionsSetState.Executed;
 }
 
 // Execute must fail if actions set state is expired.
 rule executeFailsIfExpired(uint256 actionsSetId)
 {
 	env e;
-	uint8 stateBefore = getCurrentState(e, actionsSetId);
+	IExecutorBase.ActionsSetState stateBefore = getCurrentState(e, actionsSetId);
 	execute@withrevert(e, actionsSetId);
 	bool executeReverted = lastReverted;
-	assert stateBefore == 3 => executeReverted;
+	assert stateBefore == IExecutorBase.ActionsSetState.Expired => executeReverted;
 }
 
 // Cannot execute before delay passed.
@@ -392,8 +392,8 @@ filtered{f -> stateVariableUpdate(f)}
 	execute@withrevert(e2, actionsSetId);
 
 	assert 
-		(e2.block.timestamp < e.block.timestamp + delay => lastReverted)
-		&& (execTime2 == execTime1);
+            (to_mathint(e2.block.timestamp) < e.block.timestamp + delay => lastReverted)
+            && (execTime2 == execTime1);
 }
 
 // Two equal transaction sets in different blocks 
